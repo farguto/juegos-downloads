@@ -1,0 +1,46 @@
+{
+    "schema":  1,
+    "repository":  "farguto/juegos-downloads",
+    "tag":  "geochase-guide-20261110",
+    "source":  {
+                   "repository":  "farguto/geochase-unreal",
+                   "commit":  "3f64784c592853aa2366dad285ba295fd9beb5d6",
+                   "asset":  "Content/GeoChase/UI/WBP_Shell.uasset",
+                   "assetSha256":  "1561d152fe46969691cc3582aa1fa0d1f4cbadfc7d7c44e0d606cd46b930ec2a"
+               },
+    "baseline":  {
+                     "url":  "https://github.com/farguto/juegos-downloads/releases/download/geochase-tutorial-20261023/GeoChase-Windows-DX11-tutorial-20261023.zip",
+                     "bytes":  319964763,
+                     "sha256":  "0b866096e89f6d5deea7c412ec88e82e13bbf4f3ea6542f1982af2f7cde19b32"
+                 },
+    "patch":  {
+                  "file":  "GeoChase.forward.patch",
+                  "bytes":  10374079,
+                  "sha256":  "d868e785da83f26d0fbe7beb31299b0a11a72180f91ee3b9e9acfa596172a77b",
+                  "format":  "git binary patch, forward hunk only; exact application verified"
+              },
+    "archive":  {
+                    "file":  "GeoChase-Windows-DX11-guide-20261110.zip",
+                    "bytes":  266316627,
+                    "sha256":  "0836faaed57ae003981b8edcc40f9bec82b6cd5b284ccc9e6bbf1d71815740f4"
+                },
+    "qa":  {
+               "approved":  false,
+               "archiveSha256":  "0836faaed57ae003981b8edcc40f9bec82b6cd5b284ccc9e6bbf1d71815740f4",
+               "status":  "visual-verification-pending",
+               "evidence":  null,
+               "reviewedAtUtc":  null,
+               "observed":  "Normal executable started in isolated QA user directory. Visual interaction and DX11 have not been verified.",
+               "limitations":  [
+                                   "Computer-use runtime unavailable; no screenshots or gameplay input were captured for standalone QA.",
+                                   "No publication is authorized by this pending QA record."
+                               ]
+           },
+    "publication":  {
+                        "user_requested_publication":  true,
+                        "archiveSha256":  "0836faaed57ae003981b8edcc40f9bec82b6cd5b284ccc9e6bbf1d71815740f4",
+                        "recordedAtUtc":  "2026-11-10T20:17:21.2530064Z",
+                        "request":  "actualiza la descarga en el portfolio de geochase",
+                        "visual_qa_pending":  true
+                    }
+}

@@ -1,0 +1,54 @@
+name: Publish verified GeoChase guide release
+
+on:
+  push:
+    branches: [release/geochase-guide-20261110]
+    paths:
+      - '.github/workflows/publish-geochase-guide.yml'
+      - 'releases/geochase-guide-20261110/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: geochase-guide-20261110
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      GH_REPO: farguto/juegos-downloads
+      RELEASE_DIR: releases/geochase-guide-20261110
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify guards
+        run: python3 "$RELEASE_DIR/test_guards.py"
+      - name: Require publication authorization for this exact ZIP
+        run: python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --check-publication
+      - name: Reconstruct and verify original ZIP bytes
+        run: python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --work-dir "$RUNNER_TEMP/geochase-release" --reconstruct
+      - name: Create a new draft and verify uploaded assets before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=geochase-guide-20261110
+          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "Release already exists; refusing to overwrite it"
+            exit 1
+          fi
+          python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --check-publication
+          gh release create "$tag" --repo "$GH_REPO" --draft --target "$GITHUB_SHA" --title "GeoChase: guía y presupuesto de viajes — 10/11/2026" --notes-file "$RELEASE_DIR/RELEASE-NOTES.md"
+          gh release upload "$tag" --repo "$GH_REPO" "$RUNNER_TEMP/geochase-release/GeoChase-Windows-DX11-guide-20261110.zip" "$RUNNER_TEMP/geochase-release/SHA256SUMS.txt" "$RUNNER_TEMP/geochase-release/release-provenance.json"
+          gh api "repos/$GH_REPO/releases/tags/$tag" > "$RUNNER_TEMP/geochase-upload.json"
+          python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --work-dir "$RUNNER_TEMP/geochase-release" --verify-upload "$RUNNER_TEMP/geochase-upload.json"
+          gh release edit "$tag" --repo "$GH_REPO" --draft=false --latest=false
+          gh api "repos/$GH_REPO/releases/tags/$tag" > "$RUNNER_TEMP/geochase-published.json"
+          python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --work-dir "$RUNNER_TEMP/geochase-release" --verify-upload "$RUNNER_TEMP/geochase-published.json"
+          test "$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq '.draft')" = false
