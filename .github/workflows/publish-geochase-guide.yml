@@ -31,24 +31,30 @@ jobs:
         run: python3 "$RELEASE_DIR/test_guards.py"
       - name: Require publication authorization for this exact ZIP
         run: python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --check-publication
-      - name: Reconstruct and verify original ZIP bytes
-        run: python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --work-dir "$RUNNER_TEMP/geochase-release" --reconstruct
-      - name: Create a new draft and verify uploaded assets before publishing
+      - name: Verify and publish the existing complete draft by ID
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           tag=geochase-guide-20261110
-          if gh release view "$tag" --repo "$GH_REPO" >/dev/null 2>&1; then
-            echo "Release already exists; refusing to overwrite it"
-            exit 1
-          fi
+          release_id=440867190
+          target=d71bc9e7597ac9ae098d92e16fdfeb11d269a811
+          expected='[{"name":"GeoChase-Windows-DX11-guide-20261110.zip","size":266316627,"digest":"sha256:0836faaed57ae003981b8edcc40f9bec82b6cd5b284ccc9e6bbf1d71815740f4","state":"uploaded"},{"name":"release-provenance.json","size":2022,"digest":"sha256:a46c43bc1a7868f10718a6b36911bc9aecc06aa4e7c0e684d194523e96806fb5","state":"uploaded"},{"name":"SHA256SUMS.txt","size":107,"digest":"sha256:2787880a0045a97d675f6fc9a84070ddbc30cd5f77e115c7a38540c114c16f35","state":"uploaded"}]'
+          verify_release() {
+            jq -e --arg tag "$tag" --arg target "$target" --argjson id "$release_id" --argjson draft "$2" --argjson expected "$expected" '
+              .id == $id and .tag_name == $tag and .target_commitish == $target and .draft == $draft and
+              ((.assets | map({name,size,digest,state}) | sort_by(.name)) == ($expected | sort_by(.name)))
+            ' "$1"
+          }
+          # Run 42894468219 already reconstructed the exact ZIP and uploaded all three assets.
+          # A draft without a created tag must be addressed by release ID, not /releases/tags.
+          gh api "repos/$GH_REPO/releases/$release_id" > "$RUNNER_TEMP/geochase-upload.json"
+          verify_release "$RUNNER_TEMP/geochase-upload.json" true
           python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --check-publication
-          gh release create "$tag" --repo "$GH_REPO" --draft --target "$GITHUB_SHA" --title "GeoChase: guía y presupuesto de viajes — 10/11/2026" --notes-file "$RELEASE_DIR/RELEASE-NOTES.md"
-          gh release upload "$tag" --repo "$GH_REPO" "$RUNNER_TEMP/geochase-release/GeoChase-Windows-DX11-guide-20261110.zip" "$RUNNER_TEMP/geochase-release/SHA256SUMS.txt" "$RUNNER_TEMP/geochase-release/release-provenance.json"
-          gh api "repos/$GH_REPO/releases/tags/$tag" > "$RUNNER_TEMP/geochase-upload.json"
-          python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --work-dir "$RUNNER_TEMP/geochase-release" --verify-upload "$RUNNER_TEMP/geochase-upload.json"
-          gh release edit "$tag" --repo "$GH_REPO" --draft=false --latest=false
-          gh api "repos/$GH_REPO/releases/tags/$tag" > "$RUNNER_TEMP/geochase-published.json"
-          python3 "$RELEASE_DIR/reconstruct.py" --manifest "$RELEASE_DIR/manifest.json" --work-dir "$RUNNER_TEMP/geochase-release" --verify-upload "$RUNNER_TEMP/geochase-published.json"
-          test "$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq '.draft')" = false
+          gh api --method PATCH "repos/$GH_REPO/releases/$release_id" -F draft=false -f make_latest=false > "$RUNNER_TEMP/geochase-published.json"
+          verify_release "$RUNNER_TEMP/geochase-published.json" false
+          url=$(jq -r '.assets[] | select(.name == "GeoChase-Windows-DX11-guide-20261110.zip") | .browser_download_url' "$RUNNER_TEMP/geochase-published.json")
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 2 "$url" --output "$RUNNER_TEMP/geochase-public.zip"
+          test "$(stat --format=%s "$RUNNER_TEMP/geochase-public.zip")" = 266316627
+          echo "0836faaed57ae003981b8edcc40f9bec82b6cd5b284ccc9e6bbf1d71815740f4  $RUNNER_TEMP/geochase-public.zip" | sha256sum --check -
+
